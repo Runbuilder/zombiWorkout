@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스쿼트 점프 어드벤처</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
+            min-height: 100vh;
+        }
+        .emoji-placeholder {
+            font-size: 100px;
+            text-align: center;
+            line-height: 200px;
+        }
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 75px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
+        }
+        .btn-start {
+            background: linear-gradient(45deg, #FF512F, #DD2476);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-start:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .canvas-container {
+            width: 100%;
+            max-width: 800px;
+            height: 400px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+        }
+        #webcamCanvas {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 120px;
+            height: 90px;
+            z-index: 15;
+        }
+        #gameElements {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 15;
+        }
+        .obstacle {
+            position: absolute;
+            width: 80px;
+            height: 120px;
+        }
+        #player {
+            position: absolute;
+            width: 65px;
+            height: 120px;
+            transition: top 0.1s linear;
+        }
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 20;
+        }
+        #gameOverScreen {
+            display: none;
+        }
+        #time {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            z-index: 25;
+            color: white;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
+        }
+        #energyContainer {
+            position: absolute;
+            top: 40px;
+            left: 10px;
+            z-index: 25;
+            font-size: 20px;
+        }
+        #classContainer {
+            position: absolute;
+            top: 110px;
+            right: 10px;
+            font-size: 14px;
+            z-index: 25;
+            color: white;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
+            text-align: right;
+        }
+        .invincible {
+            opacity: 0.5;
+        }
+        #loginButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 30;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .user-record {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+        }
+        .user-record > * {
+            flex: 1;
+            text-align: center;
+        }
+        .user-record .user-name {
+            flex: 2;
+            text-align: left;
+            cursor: pointer;
+        }
+        .user-record .user-name:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="font-sans">
+    <div class="container mx-auto p-4">
+        <h1 class="text-4xl md:text-5xl font-bold text-center my-8 text-white">스쿼트 점프 어드벤처</h1>
+        
+        <button id="loginButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Google 로그인
+        </button>
+
+        <div class="card p-6 mb-6 text-center">
+            <button id="startButton" class="btn-start font-bold py-2 px-4 rounded-full mb-4 text-lg">
+                게임 시작
+            </button>
+            <div id="squatCount" class="text-3xl md:text-4xl font-bold mt-4 hidden">스쿼트 횟수: 0</div>
+            <div class="mt-4 canvas-container">
+                <div id="emojiPlaceholder" class="emoji-placeholder">🏋️‍♀️</div>
+                <div id="spinner" class="spinner hidden"></div>
+                <canvas id="gameCanvas" width="800" height="400" class="hidden"></canvas>
+                <canvas id="webcamCanvas" width="120" height="90" class="hidden"></canvas>
+                <div id="gameElements"></div>
+                <div id="startScreen">
+                    <h1>스쿼트 점프 어드벤처</h1>
+                    <p>스쿼트를 하면 캐릭터가 점프합니다!</p>
+                </div>
+                <div id="gameOverScreen">
+                    <h1>게임 오버!</h1>
+                    <p id="finalScore"></p>
+                    <button id="restartButton" class="btn-start font-bold py-2 px-4 rounded-full mt-4 text-lg">다시 시작</button>
+                </div>
+                <div id="time">시간: 0초</div>
+                <div id="energyContainer"></div>
+                <div id="classContainer"></div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <h2 class="text-2xl md:text-3xl font-semibold mb-4 text-center">게임 기록</h2>
+            <ul id="gameList" class="divide-y divide-gray-200"></ul>
+        </div>
+    </div>
+
+    <div id="recordModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle" class="text-2xl font-bold mb-4"></h2>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA0b2FuxhGjJWgdNcEv9QoGv7nc3k7zbNM",
+            authDomain: "diary-3991f.firebaseapp.com",
+            projectId: "diary-3991f",
+            storageBucket: "diary-3991f.appspot.com",
+            messagingSenderId: "1064130635244",
+            appId: "1:1064130635244:web:d71196549746ca32e88cc9"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+
+        const URL = "https://teachablemachine.withgoogle.com/models/Xpp18QWUB/";
+        let model, webcam, ctx, labelContainer, maxPredictions;
+        let squatCount = 0;
+        let isSquatting = false;
+
+        const canvas = document.getElementById('gameCanvas');
+        const gameCtx = canvas.getContext('2d');
+        const webcamCanvas = document.getElementById('webcamCanvas');
+        const webcamCtx = webcamCanvas.getContext('2d');
+        const gameElements = document.getElementById('gameElements');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const timeText = document.getElementById('time');
+        const finalScoreText = document.getElementById('finalScore');
+        const classContainer = document.getElementById('classContainer');
+
+        let gameLoop;
+        let player = {x: 50, y: 250, width: 65, height: 120, jumping: false, yVelocity: 0, invincible: false};
+        let obstacles = [];
+        let gameSpeed = 6;
+        let isGameRunning = false;
+        let clouds = [];
+        let gameTime = 0;
+        let energy = 3;
+        let lastObstacleTime = 0;
+
+        let playerElement;
+        let backgroundMusic = new Audio('images/bgm.mp3');
+        backgroundMusic.loop = true;
+
+        document.getElementById('startButton').addEventListener('click', startWorkout);
+        restartButton.addEventListener('click', restartGame);
+
+        // 로그인 버튼 이벤트 리스너
+        document.getElementById('loginButton').addEventListener('click', () => {
+            if (currentUser) {
+                signOut(auth).then(() => {
+                    console.log('User signed out');
+                }).catch((error) => {
+                    console.error('Sign out error', error);
+                });
+            } else {
+                signInWithPopup(auth, provider)
+                    .then((result) => {
+                        console.log('User signed in');
+                    }).catch((error) => {
+                        console.error('Login error', error);
+                    });
+            }
+        });
+
+        // 인증 상태 변경 감지
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginButton').textContent = '로그아웃';
+            } else {
+                currentUser = null;
+                document.getElementById('loginButton').textContent = 'Google 로그인';
+            }
+            loadGamesFromFirestore();
+        });
+
+        // 페이지 로드 시 Firebase에서 게임 기록 불러오기
+        window.addEventListener('DOMContentLoaded', (event) => {
+            loadGamesFromFirestore();
+        });
+
+        async function loadGamesFromFirestore() {
+            const gameList = document.getElementById('gameList');
+            gameList.innerHTML = '';
+
+            const querySnapshot = await getDocs(collection(db, "gameRecords"));
+            const userRecords = {};
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                if (!userRecords[data.userId]) {
+                    userRecords[data.userId] = {
+                        name: data.userName || '익명 사용자',
+                        records: [],
+                        bestRecord: 0
+                    };
+                }
+                userRecords[data.userId].records.push(data);
+                userRecords[data.userId].bestRecord = Math.max(userRecords[data.userId].bestRecord, data.squatCount);
+
+});
+
+            const sortedUsers = Object.values(userRecords).sort((a, b) => b.bestRecord - a.bestRecord);
+
+            sortedUsers.forEach(user => {
+                const listItem = document.createElement('li');
+                listItem.className = 'user-record';
+                listItem.innerHTML = `
+                    <span class="user-name">${user.name}</span>
+                    <span>최고기록: ${user.bestRecord}회</span>
+                    ${currentUser && currentUser.uid === Object.keys(userRecords).find(key => userRecords[key] === user) ? 
+                        `<button class="delete-all-records text-red-500 hover:text-red-700" data-userid="${Object.keys(userRecords).find(key => userRecords[key] === user)}">
+                            <i class="fas fa-trash"></i>
+                         </button>` : '<span></span>'}
+                `;
+                gameList.appendChild(listItem);
+            });
+
+            // 삭제 버튼에 이벤트 리스너 추가
+            document.querySelectorAll('.delete-all-records').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const userId = e.currentTarget.getAttribute('data-userid');
+                    await deleteAllUserRecords(userId);
+                });
+            });
+
+            // 각 사용자 기록에 클릭 이벤트 리스너 추가
+            document.querySelectorAll('.user-record').forEach(record => {
+                record.querySelector('.user-name').addEventListener('click', (e) => {
+                    const userId = Object.keys(userRecords).find(key => userRecords[key].name === e.target.textContent);
+                    showUserRecords(userRecords[userId]);
+                });
+            });
+        }
+
+        function showUserRecords(user) {
+            const modal = document.getElementById('recordModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+
+            modalTitle.textContent = `${user.name}의 운동 기록`;
+            modalContent.innerHTML = '';
+
+            user.records.sort((a, b) => b.timestamp.toDate() - a.timestamp.toDate());
+
+            user.records.forEach(record => {
+                const recordDiv = document.createElement('div');
+                recordDiv.className = 'mb-2 p-2 border-b';
+                recordDiv.innerHTML = `
+                    <p>날짜: ${record.date}</p>
+                    <p>게임 시간: ${record.gameTime}초</p>
+                    <p>스쿼트 횟수: ${record.squatCount}</p>
+                `;
+                modalContent.appendChild(recordDiv);
+            });
+
+            modal.style.display = 'block';
+
+            // 모달 닫기
+            const closeBtn = document.getElementsByClassName('close')[0];
+            closeBtn.onclick = function() {
+                modal.style.display = 'none';
+            }
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            }
+        }
+
+        async function deleteAllUserRecords(userId) {
+            if (!currentUser || currentUser.uid !== userId) {
+                Swal.fire('오류', '자신의 기록만 삭제할 수 있습니다.', 'error');
+                return;
+            }
+
+            const result = await Swal.fire({
+                title: '모든 기록을 삭제하시겠습니까?',
+                text: "이 작업은 되돌릴 수 없습니다!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: '네, 삭제합니다!',
+                cancelButtonText: '취소'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    const querySnapshot = await getDocs(query(collection(db, "gameRecords"), where("userId", "==", userId)));
+                    const batch = writeBatch(db);
+                    querySnapshot.forEach((doc) => {
+                        batch.delete(doc.ref);
+                    });
+                    await batch.commit();
+                    await loadGamesFromFirestore();
+                    Swal.fire('삭제 완료', '모든 게임 기록이 삭제되었습니다.', 'success');
+                } catch (error) {
+                    console.error("Error deleting documents: ", error);
+                    Swal.fire('오류 발생', '게임 기록 삭제 중 오류가 발생했습니다.', 'error');
+                }
+            }
+        }
+
+        async function startWorkout() {
+            startButton.classList.add('hidden');
+            document.getElementById('emojiPlaceholder').classList.add('hidden');
+            document.getElementById('spinner').classList.remove('hidden');
+            await init();
+            document.getElementById('spinner').classList.add('hidden');
+            webcamCanvas.classList.remove('hidden');
+            canvas.classList.remove('hidden');
+            startScreen.style.display = 'none';
+            squatCount = 0;
+            document.getElementById('squatCount').textContent = `스쿼트 횟수: ${squatCount}`;
+            document.getElementById('squatCount').classList.remove('hidden');
+            initGame();
+            startGameLoop();
+        }
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmPose.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            const size = 400;
+            const flip = true;
+            webcam = new tmPose.Webcam(120, 90, flip);
+            await webcam.setup();
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            labelContainer = document.getElementById("classContainer");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        async function loop(timestamp) {
+            webcam.update();
+            await predict();
+            webcamCtx.drawImage(webcam.canvas, 0, 0, 120, 90);
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+            const prediction = await model.predict(posenetOutput);
+
+            if (prediction[0].probability > 0.9 && isSquatting) {
+                isSquatting = false;
+                squatCount++;
+                document.getElementById('squatCount').textContent = `스쿼트 횟수: ${squatCount}`;
+                playerJump();
+            } else if (prediction[1].probability > 0.9) {
+                isSquatting = true;
+            }
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+            }
+
+            if (pose) {
+                const minPartConfidence = 0.5;
+                tmPose.drawKeypoints(pose.keypoints, minPartConfidence, webcamCtx);
+                tmPose.drawSkeleton(pose.keypoints, minPartConfidence, webcamCtx);
+            }
+        }
+
+        function initGame() {
+            player = {x: 50, y: 250, width: 65, height: 120, jumping: false, yVelocity: 0, invincible: false};
+            obstacles.forEach(obstacle => obstacle.remove());
+            obstacles = [];
+            gameSpeed = 6;
+            initBackgroundElements();
+            createPlayerElement();
+            gameTime = 0;
+            energy = 3;
+            updateEnergy();
+            lastObstacleTime = 0;
+        }
+
+        function initBackgroundElements() {
+            clouds = [
+                {x: 100, y: 50, size: 40},
+                {x: 300, y: 80, size: 60},
+                {x: 600, y: 60, size: 50}
+            ];
+        }
+
+        function startGameLoop() {
+            isGameRunning = true;
+            backgroundMusic.play();
+            gameLoop = setInterval(() => {
+                update();
+                draw();
+                gameTime++;
+                updateTime();
+            }, 1000/60);
+        }
+
+        function update() {
+            if (player.jumping) {
+                player.yVelocity += 0.5;
+                player.y += player.yVelocity;
+                if (player.y >= 250) {
+                    player.y = 250;
+                    player.jumping = false;
+                    updatePlayerImage();
+                }
+                updatePlayerPosition();
+            }
+
+            if (gameTime - lastObstacleTime > 120) { // 약 2초마다 장애물 생성
+                createObstacle();
+                lastObstacleTime = gameTime;
+            }
+
+            obstacles.forEach((obstacle, index) => {
+                const obstacleX = parseInt(obstacle.style.left) - gameSpeed;
+                obstacle.style.left = `${obstacleX}px`;
+                if (obstacleX + 80 < 0) {
+                    obstacle.remove();
+                    obstacles.splice(index, 1);
+                }
+                if (!player.invincible && checkCollision(player, {x: obstacleX, y: 250, width: 80, height: 120})) {
+                    playerHit();
+                }
+            });
+
+            updateBackgroundElements();
+        }
+
+        function updateBackgroundElements() {
+            clouds.forEach(cloud => {
+                cloud.x -= gameSpeed * 0.5;
+                if (cloud.x + cloud.size < 0) {
+                    cloud.x = canvas.width;
+                }
+            });
+        }
+
+        function draw() {
+            gameCtx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+        }
+
+        function drawBackground() {
+            gameCtx.fillStyle = 'rgba(135, 206, 235, 0.5)';
+            gameCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            gameCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            clouds.forEach(cloud => {
+                drawCloud(cloud.x, cloud.y, cloud.size);
+            });
+
+            gameCtx.fillStyle = 'rgba(139, 69, 19, 0.5)';
+            gameCtx.fillRect(0, 370, canvas.width, 30);
+        }
+
+        function drawCloud(x, y, size) {
+            gameCtx.beginPath();
+            gameCtx.arc(x, y, size/2, 0, Math.PI * 2);
+            gameCtx.arc(x + size/3, y - size/3, size/3, 0, Math.PI * 2);
+            gameCtx.arc(x + size/1.5, y, size/2.5, 0, Math.PI * 2);
+            gameCtx.fill();
+        }
+
+        function createPlayerElement() {
+            if (playerElement) {
+                playerElement.remove();
+            }
+            playerElement = document.createElement('img');
+            playerElement.src = 'images/player.png';
+            playerElement.id = 'player';
+            updatePlayerPosition();
+            gameElements.appendChild(playerElement);
+        }
+
+        function updatePlayerPosition() {
+            playerElement.style.left = `${player.x}px`;
+            playerElement.style.top = `${player.y}px`;
+        }
+
+        function updatePlayerImage() {
+            if (player.jumping) {
+                playerElement.src = 'images/player2.png';
+                playerElement.style.width = '80px';
+                playerElement.style.height = '140px';
+            } else {
+                playerElement.src = 'images/player.png';
+                playerElement.style.width = '65px';
+                playerElement.style.height = '120px';
+            }
+            playerElement.classList.toggle('invincible', player.invincible);
+        }
+
+        function createObstacle() {
+            const obstacle = document.createElement('img');
+            obstacle.src = Math.random() < 0.5 ? 'images/enermy1.gif' : 'images/enermy2.gif';
+            obstacle.className = 'obstacle';
+            obstacle.style.left = `${canvas.width}px`;
+            obstacle.style.top = '250px';
+            gameElements.appendChild(obstacle);
+            obstacles.push(obstacle);
+        }
+
+        function checkCollision(player, obstacle) {
+            const collisionMargin = 20;
+            const frontCollisionMargin = 10;
+            return (player.x + player.width - frontCollisionMargin) > obstacle.x &&
+                   (player.x + frontCollisionMargin) < (obstacle.x + obstacle.width) &&
+                   (player.y + collisionMargin) < (obstacle.y + obstacle.height) &&
+                   (player.y + player.height - collisionMargin) > obstacle.y;
+        }
+
+        function playerJump() {
+            if (!player.jumping) {
+                player.jumping = true;
+                player.yVelocity = -15;
+                updatePlayerImage();
+            }
+        }
+
+        function updateTime() {
+            timeText.textContent = `시간: ${Math.floor(gameTime / 60)}초`;
+        }
+
+        function playerHit() {
+            energy--;
+            updateEnergy();
+            if (energy <= 0) {
+                gameOver();
+            } else {
+                player.invincible = true;
+                updatePlayerImage();
+                setTimeout(() => {
+                    player.invincible = false;
+                    updatePlayerImage();
+                }, 1000);
+            }
+        }
+
+        function updateEnergy() {
+            const energyContainer = document.getElementById('energyContainer');
+            energyContainer.innerHTML = '❤️'.repeat(energy);
+        }
+
+        async function gameOver() {
+            isGameRunning = false;
+            clearInterval(gameLoop);
+            backgroundMusic.pause();
+            backgroundMusic.currentTime = 0;
+            finalScoreText.textContent = `게임 시간: ${Math.floor(gameTime / 60)}초, 스쿼트 횟수: ${squatCount}`;
+            gameOverScreen.style.display = 'flex';
+
+            // Firebase에 게임 기록 저장 (로그인한 사용자만)
+            if (currentUser) {
+                try {
+                    await addDoc(collection(db, "gameRecords"), {
+                        userId: currentUser.uid,
+                        userName: currentUser.displayName || '익명 사용자',
+                        userEmail: currentUser.email,
+                        date: new Date().toLocaleDateString(),
+                        gameTime: Math.floor(gameTime / 60),
+                        squatCount: squatCount,
+                        timestamp: new Date()
+                    });
+                   await loadGamesFromFirestore(); // 새 기록 추가 후 목록 갱신
+                } catch (e) {
+                    console.error("Error adding document: ", e);
+                }
+            } else {
+                console.log("User not logged in. Game record not saved.");
+            }
+
+            // 웹캠 정지
+            if (webcam) {
+                webcam.stop();
+            }
+        }
+
+        function restartGame() {
+            gameOverScreen.style.display = 'none';
+            startWorkout();
+        }
+
+        // 모바일 대응
+        canvas.addEventListener('touchstart', () => {
+            if (!player.jumping && isGameRunning) {
+                playerJump();
+            }
+        });
+    </script>
+</body>
+</html>
